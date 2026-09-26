@@ -626,7 +626,8 @@ export function MengToSketchbookLandingPage(props: LandingPageProps & PageTypogr
 export function EskandriaMenuLandingPage(props: LandingPageProps & PageTypographyProps) {
   const [type, frame] = splitTypographyProps(props);
   const customization = usePageTypography(MENG_TO_SKETCHBOOK_TYPOGRAPHY, type);
-  return <LandingPageFrame {...frame} customization={customization} title="Eskandria — Speisekarte & Restaurant" sourceUrl="/landing-pages/eskandria-menu.html" />;
+  const source = (import.meta.env.BASE_URL || "./") + "landing-pages/eskandria-menu.html";
+  return <LandingPageFrame {...frame} customization={customization} title="Eskandria — Speisekarte & Restaurant" sourceUrl={source} />;
 }
 
 export function SekiteiLandingPage(props: LandingPageProps) {
