@@ -678,14 +678,14 @@ button{font:inherit}
 const Q=new URLSearchParams(location.search);
 const DIR='eskandria-menu/';
 const PAGES=[
-  {file:'spread-1.png', title:'Eskandria & Die Geschichte', place:'Willkommen'},
-  {file:'spread-2.png', title:'Vorspeisen & Manakesh', place:'Appetizers'},
-  {file:'spread-3.png', title:'Molokhia & Frischer Fisch', place:'Hauptgerichte'},
-  {file:'spread-4.png', title:'Meeresfrüchte & Lammhaxe', place:'Spezialitäten'},
-  {file:'spread-5.png', title:'Shawarma & Veggie Maqly', place:'Klassiker'},
-  {file:'spread-6.png', title:'Ofenpasta & Warme Getränke', place:'Pasta & Kaffee'},
-  {file:'spread-7.png', title:'Mocktails, Shakes & Drinks', place:'Bar & Shakes'},
-  {file:'spread-8.png', title:'Desserts & Shisha Lounge', place:'Süßes & Shisha'}
+  {file:'spread-1.webp', title:'Eskandria & Die Geschichte', place:'Willkommen'},
+  {file:'spread-2.webp', title:'Vorspeisen & Manakesh', place:'Appetizers'},
+  {file:'spread-3.webp', title:'Molokhia & Frischer Fisch', place:'Hauptgerichte'},
+  {file:'spread-4.webp', title:'Meeresfrüchte & Lammhaxe', place:'Spezialitäten'},
+  {file:'spread-5.webp', title:'Shawarma & Veggie Maqly', place:'Klassiker'},
+  {file:'spread-6.webp', title:'Ofenpasta & Warme Getränke', place:'Pasta & Kaffee'},
+  {file:'spread-7.webp', title:'Mocktails, Shakes & Drinks', place:'Bar & Shakes'},
+  {file:'spread-8.webp', title:'Desserts & Shisha Lounge', place:'Süßes & Shisha'}
 ];
 PAGES.forEach(p=>p.url=DIR+p.file);
 const M=PAGES.length, LAND=6;
@@ -1300,19 +1300,29 @@ function startIntro(){
 /* ------------------------------------------------------------- boot */
 (async function boot(){
   idx=Q.has('shot')?(parseInt(Q.get('shot'),10)||0)%M:0;
-  paint();applyView();
-  await Promise.all(PAGES.map(p=>{
-    const im=new Image();im.src=p.url;
-    return im.decode?im.decode().catch(()=>{}):new Promise(r=>{im.onload=im.onerror=r});
-  }));
-  if(document.fonts&&document.fonts.ready)await document.fonts.ready.catch(()=>{});
-  syncZoom();restLoupe();
+  // 1. Immediately paint and layout the book
+  paint();
+  applyView();
+  syncZoom();
+  restLoupe();
   document.body.dataset.ready='1';
-  if(Q.has('shot')){
-    if(Q.has('t')){startTurn(Q.get('dir')||'next',parseFloat(Q.get('t')));}
-    return;
-  }
-  setTimeout(startIntro,220);
+
+  // 2. Preload first spread immediately
+  const firstImg = new Image();
+  firstImg.src = PAGES[idx].url;
+  if(firstImg.decode) await firstImg.decode().catch(()=>{});
+  paint();
+
+  // 3. Preload remaining spreads in background progressively
+  setTimeout(()=>{
+    PAGES.forEach((p, i)=>{
+      if(i !== idx){
+        const im = new Image();
+        im.src = p.url;
+        if(im.decode) im.decode().catch(()=>{});
+      }
+    });
+  }, 120);
 })();
 </script>
 </body>
