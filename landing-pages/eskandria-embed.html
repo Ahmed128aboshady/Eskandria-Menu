@@ -344,9 +344,9 @@ button{font:inherit}
   font-size:11px;letter-spacing:.1em;color:var(--ink-faint);
   min-width:40px;text-align:center;font-variant-numeric:tabular-nums;
 }
-@media (pointer:coarse){.loupe{display:none}}
+@media (pointer:coarse), (max-width:768px){.loupe, .zoomwrap, #zoomWrap, #loupe{display:none !important;pointer-events:none !important;visibility:hidden !important}}
 
-.sb-zone{position:absolute;top:0;bottom:0;border:0;background:transparent;cursor:grab;z-index:60;-webkit-tap-highlight-color:transparent}
+.sb-zone{position:absolute;top:0;bottom:0;border:0;background:transparent;cursor:pointer;z-index:60;-webkit-tap-highlight-color:transparent;touch-action:pan-y}
 .sb-zone:active{cursor:grabbing}
 .sb-prev{left:0;width:50%}
 .sb-next{right:0;width:50%}
@@ -478,20 +478,24 @@ button{font:inherit}
   .hero{min-height:auto;padding:14px 0 18px}
   .hero-kicker{font-size:10.5px;letter-spacing:.14em;margin-bottom:14px;padding:0 12px}
   .sb-wrap{width:100vw;margin-inline:calc(50% - 50vw);gap:14px}
-  .sb-stage{padding:0 8px}
+  .sb-stage{padding:0 8px;touch-action:pan-y}
   .sb-arrow{
-    position:absolute;top:50%;transform:translateY(-50%);z-index:70;
-    width:42px;height:42px;border-radius:50%;
-    background:rgba(255,252,244,.88);border:1px solid var(--hairline);
-    box-shadow:0 4px 14px rgba(43,39,33,.14);
-    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
-    padding:0;color:var(--ink);
+    position:absolute;top:50%;transform:translateY(-50%);z-index:100;
+    width:46px;height:46px;border-radius:50%;
+    background:rgba(255,252,244,.95);border:1px solid var(--hairline);
+    box-shadow:0 4px 14px rgba(43,39,33,.18);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    display:flex;align-items:center;justify-content:center;
+    padding:0;color:var(--ink);cursor:pointer;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
   }
-  .sb-arrow svg{width:12px;height:24px}
-  .sb-arrow.left{left:10px}
-  .sb-arrow.right{right:10px}
-  .sb-3d{max-width:none}
+  .sb-arrow svg{width:14px;height:28px}
+  .sb-arrow.left{left:8px}
+  .sb-arrow.right{right:8px}
+  .sb-3d{max-width:none;touch-action:pan-y}
   .sb-hint{font-size:10px;letter-spacing:.08em;padding:0 16px;text-align:center}
+  .sb-tools, .loupe, #loupe, .zoomwrap, #zoomWrap{display:none !important;pointer-events:none !important;visibility:hidden !important}
   
   .top{padding-inline:14px;padding-block:12px 36px;gap:6px}
   .top .name{font-size:20px}
@@ -914,59 +918,26 @@ stage.addEventListener('dblclick',()=>setView(view.trx,view.try_,1));
 
 /* ------------------------------------------------------- pointer & touch work */
 let drag=null;
-let touchGesture=null;
 function bookRect(){return book.getBoundingClientRect()}
-function hideHint(){hint.classList.add('gone')}
+function hideHint(){if(hint)hint.classList.add('gone')}
 
+// 1. Mouse Drag (Desktop)
 stage.addEventListener('pointerdown',e=>{
-  if(e.button!==0)return;
-  const onBook=e.target.closest('.sb-zone');
+  if(e.pointerType==='touch'||e.pointerType==='pen') return;
+  if(e.button!==0) return;
+  if(e.target.closest('.sb-arrow')||e.target.closest('.tool')||e.target.closest('.btn-mobile-zoom')||e.target.closest('.cat-chip')) return;
   hideHint();
-  if(!onBook||introOn)return;
+  if(introOn) return;
   
-  const isTouch = e.pointerType === 'touch';
-  const r = bookRect();
-  
-  if(!isTouch){
-    e.preventDefault();
-    stage.setPointerCapture(e.pointerId);
-    const dir=(e.clientX-r.left)/r.width>0.5?'next':'prev';
-    startTurn(dir,0);
-    drag={dir:dir,x0:e.clientX,w:r.width,moved:0,vel:0,tPrev:performance.now(),pointerId:e.pointerId};
-  }else{
-    // Mobile touch: track gesture, allow vertical scrolling unless swiping horizontally
-    touchGesture={
-      startX: e.clientX,
-      startY: e.clientY,
-      pointerId: e.pointerId,
-      time: performance.now(),
-      locked: null,
-      rect: r
-    };
-  }
+  const r=bookRect();
+  e.preventDefault();
+  try{stage.setPointerCapture(e.pointerId);}catch(_){}
+  const dir=(e.clientX-r.left)/r.width>0.5?'next':'prev';
+  startTurn(dir,0);
+  drag={dir:dir,x0:e.clientX,w:r.width,moved:0,vel:0,tPrev:performance.now(),pointerId:e.pointerId};
 });
 
 stage.addEventListener('pointermove',e=>{
-  // Touch gesture resolution
-  if(touchGesture && touchGesture.locked===null){
-    const dx = e.clientX - touchGesture.startX;
-    const dy = e.clientY - touchGesture.startY;
-    const dist = Math.hypot(dx, dy);
-    if(dist > 9){
-      if(Math.abs(dx) > Math.abs(dy)){
-        // Horizontal swipe confirmed! Lock into 3D page flip
-        touchGesture.locked = 'horizontal';
-        stage.setPointerCapture(touchGesture.pointerId);
-        const dir = dx < 0 ? 'next' : 'prev';
-        startTurn(dir, 0);
-        drag = {dir: dir, x0: touchGesture.startX, w: touchGesture.rect.width, moved: Math.abs(dx), vel: 0, tPrev: performance.now(), pointerId: touchGesture.pointerId};
-      } else {
-        // Vertical scroll intent: let native browser scroll take over
-        touchGesture.locked = 'vertical';
-      }
-    }
-  }
-
   if(!drag)return;
   e.preventDefault();
   const dx=e.clientX-drag.x0;
@@ -980,19 +951,6 @@ stage.addEventListener('pointermove',e=>{
 });
 
 function endDrag(e){
-  if(touchGesture){
-    const tg = touchGesture;
-    touchGesture = null;
-    if(tg.locked === null && (!drag || drag.moved < 8)){
-      // Simple tap on book
-      const clickX = e.clientX;
-      const r = tg.rect || bookRect();
-      const isRight = (clickX - r.left) / r.width > 0.5;
-      step(isRight ? 'next' : 'prev');
-      return;
-    }
-  }
-
   if(!drag)return;
   const d=drag;drag=null;
   if(!turn)return;
@@ -1007,6 +965,64 @@ stage.addEventListener('dragstart',e=>e.preventDefault());
 stage.addEventListener('selectstart',e=>e.preventDefault());
 stage.addEventListener('pointerup',endDrag);
 stage.addEventListener('pointercancel',endDrag);
+
+// 2. Mobile Touch Swipes & Taps (Native touchstart/touchmove/touchend)
+let touchStartPoint = null;
+let touchMovedFar = false;
+
+stage.addEventListener('touchstart', e => {
+  if(e.target.closest('.sb-arrow')||e.target.closest('.tool')||e.target.closest('.btn-mobile-zoom')||e.target.closest('.cat-chip')) return;
+  if(e.touches.length === 1){
+    const t = e.touches[0];
+    touchStartPoint = { x: t.clientX, y: t.clientY, time: performance.now() };
+    touchMovedFar = false;
+  }
+}, { passive: true });
+
+stage.addEventListener('touchmove', e => {
+  if(!touchStartPoint || e.touches.length !== 1) return;
+  const t = e.touches[0];
+  const dx = t.clientX - touchStartPoint.x;
+  const dy = t.clientY - touchStartPoint.y;
+  if(Math.hypot(dx, dy) > 10){
+    touchMovedFar = true;
+  }
+}, { passive: true });
+
+stage.addEventListener('touchend', e => {
+  if(!touchStartPoint) return;
+  if(e.target.closest('.sb-arrow')||e.target.closest('.tool')||e.target.closest('.btn-mobile-zoom')||e.target.closest('.cat-chip')){
+    touchStartPoint = null;
+    return;
+  }
+  const ct = e.changedTouches && e.changedTouches[0];
+  if(!ct){ touchStartPoint = null; return; }
+  
+  const dx = ct.clientX - touchStartPoint.x;
+  const dy = ct.clientY - touchStartPoint.y;
+  const dt = performance.now() - touchStartPoint.time;
+  const r = bookRect();
+  touchStartPoint = null;
+
+  hideHint();
+
+  // Horizontal swipe detection (>30px, horizontal intent)
+  if(Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.15){
+    if(dx < 0){
+      step('next');
+    }else{
+      step('prev');
+    }
+    return;
+  }
+
+  // Tap detection: tap right half -> next, tap left half -> prev
+  if(!touchMovedFar || (Math.hypot(dx, dy) < 14 && dt < 450)){
+    const tapX = ct.clientX;
+    const isRight = (tapX - r.left) / r.width > 0.5;
+    step(isRight ? 'next' : 'prev');
+  }
+}, { passive: true });
 
 /* ------------------------------------------------------ turn control */
 function startTurn(dir,t){
@@ -1042,8 +1058,18 @@ function goTo(i){
   paint();
   commit();
 }
-document.getElementById('sbLeft').onclick=()=>step('prev');
-document.getElementById('sbRight').onclick=()=>step('next');
+
+const sbLeft = document.getElementById('sbLeft');
+const sbRight = document.getElementById('sbRight');
+if(sbLeft){
+  sbLeft.addEventListener('click', e => { e.stopPropagation(); step('prev'); });
+  sbLeft.addEventListener('touchend', e => { e.stopPropagation(); e.preventDefault(); step('prev'); }, { passive: false });
+}
+if(sbRight){
+  sbRight.addEventListener('click', e => { e.stopPropagation(); step('next'); });
+  sbRight.addEventListener('touchend', e => { e.stopPropagation(); e.preventDefault(); step('next'); }, { passive: false });
+}
+
 addEventListener('keydown',e=>{
   if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
   if(e.metaKey||e.ctrlKey||e.altKey)return;
@@ -1062,8 +1088,8 @@ const zRead=document.getElementById('zRead');
 const loupeBtn=document.getElementById('loupeBtn');
 const zInBtn=document.getElementById('zIn'), zOutBtn=document.getElementById('zOut');
 const MAG=2.3;
-const DESK=getComputedStyle(document.documentElement).getPropertyValue('--paper').trim()||'#ece7dc';
-let loupeOn=true, lx=null, ly=null, lgrab=null, lTarget=null;
+const isMobileScreen = () => window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
+let loupeOn = !isMobileScreen(), lx=null, ly=null, lgrab=null, lTarget=null;
 
 function loupeSize(){return Math.round(Math.max(165,Math.min(262,book.clientWidth*0.235)));}
 /* the loupe's own coordinate space: stage pixels in live mode (it sits
@@ -1073,6 +1099,11 @@ function bookBox(){
 }
 /* park it on the desk at the lower right, half off the book */
 function restLoupe(){
+  if(isMobileScreen()){
+    loupeOn = false;
+    if(loupe) loupe.classList.remove('on');
+    return;
+  }
   const b=bookBox();
   lx=b.x+b.w*0.88; ly=b.y+b.h*0.855;
   placeLoupe();
@@ -1146,7 +1177,7 @@ function loupeEase(){
   return true;
 }
 loupe.addEventListener('pointerdown',e=>{
-  if(!loupeOn||e.button!==0)return;
+  if(isMobileScreen()||!loupeOn||e.button!==0)return;
   e.preventDefault();e.stopPropagation();     /* never starts a page turn */
   lTarget=null;
   lgrab={cx:e.clientX,cy:e.clientY,lx0:lx,ly0:ly};
@@ -1196,13 +1227,20 @@ PAGES.forEach((p,i)=>{
   li.appendChild(b);if(plateList) plateList.appendChild(li);
 });
 
-// Category Chips click handlers
+// Category Chips click & touch handlers
 const catChips = document.querySelectorAll('.cat-chip');
 catChips.forEach(btn=>{
-  btn.onclick=()=>{
+  const selectChip = (e) => {
+    e.stopPropagation();
     const target=parseInt(btn.getAttribute('data-idx'),10);
     goTo(target);
   };
+  btn.addEventListener('click', selectChip);
+  btn.addEventListener('touchend', e => {
+    e.stopPropagation();
+    e.preventDefault();
+    selectChip(e);
+  }, { passive: false });
 });
 
 function marks(){
