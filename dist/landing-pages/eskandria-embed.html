@@ -812,9 +812,13 @@ function fadeCaption(t){
   capIn.style.opacity=inn.toFixed(3);
 }
 function layout(){
-  sb3d.style.setProperty('--bw',book.clientWidth+'px');
+  const w = book.clientWidth || sb3d.clientWidth || 800;
+  sb3d.style.setProperty('--bw', w + 'px');
 }
 addEventListener('resize',layout);
+if(window.ResizeObserver){
+  try { new ResizeObserver(layout).observe(stage); } catch(e){}
+}
 
 /* ------------------------------------------------------ spring loop */
 let spring=null;
@@ -1030,12 +1034,13 @@ function step(dir){
   startTurn(dir,0);commit();
 }
 function goTo(i){
-  if(introOn)endIntro();
-  if(i===idx)return;
-  if(turn){idx=turn.to;turn=null;}
-  const fwd=(i-idx+M)%M, back=(idx-i+M)%M;
-  if(Math.min(fwd,back)===1){step(fwd===1?'next':'prev');return;}
-  idx=i;paint();
+  if(typeof endIntro === 'function' && introOn) endIntro();
+  if(i === idx || turn) return;
+  hideHint();
+  const dir = i > idx ? 'next' : 'prev';
+  turn = { dir: dir, from: idx, to: i, t: 0 };
+  paint();
+  commit();
 }
 document.getElementById('sbLeft').onclick=()=>step('prev');
 document.getElementById('sbRight').onclick=()=>step('next');
@@ -1047,9 +1052,7 @@ addEventListener('keydown',e=>{
   e.preventDefault();hideHint();
   step(e.key==='ArrowRight'?'next':'prev');
 });
-// document.getElementById('heroDown')=()=>{
-  document.getElementById('about').scrollIntoView({behavior:'smooth',block:'start'});
-};
+
 
 /* --------------------------------------------------- loupe + controls */
 const loupe=document.getElementById('loupe');
@@ -1179,14 +1182,7 @@ zInBtn.onclick=()=>{setView(view.trx,view.try_,view.tz*1.16);hideHint();};
 zOutBtn.onclick=()=>{setView(view.trx,view.try_,view.tz/1.16);hideHint();};
 
 /* --------------------------------------------------------- the index & navigation */
-function goTo(targetIdx){
-  if(targetIdx===idx || turn) return;
-  hideHint();
-  const dir = targetIdx > idx ? 'next' : 'prev';
-  turn = { dir: dir, from: idx, to: targetIdx, t: 0 };
-  paint();
-  commit();
-}
+
 
 const plateList=document.getElementById('plateList');
 PAGES.forEach((p,i)=>{
